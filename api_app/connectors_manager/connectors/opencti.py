@@ -141,7 +141,8 @@ class OpenCTI(classes.Connector):
                 createdBy=org_id,
                 objectMarking=marking_id,
             )
-            created["observable"] = observable.get("id") if isinstance(observable, dict) else None
+            observable_id = observable.get("id") if isinstance(observable, dict) and "id" in observable else None
+            created["observable"] = observable_id
 
             # Create labels from Job tags (if not exists)
             label_ids = []
@@ -174,7 +175,8 @@ class OpenCTI(classes.Connector):
                 objectLabel=label_ids,
                 x_opencti_report_status=2,  # Analyzed
             )
-            created["report"] = report.get("id") if isinstance(report, dict) else None
+            report_id = report.get("id") if isinstance(report, dict) and "id" in report else None
+            created["report"] = report_id
 
             # Create the external reference
             external_reference = pycti.ExternalReference(self.opencti_instance, None).create(
@@ -182,25 +184,27 @@ class OpenCTI(classes.Connector):
                 description="View analysis report on the IntelOwl instance",
                 url=f"{settings.WEB_CLIENT_URL}/jobs/{self.job_id}",
             )
-            created["external_reference"] = (
-                external_reference.get("id") if isinstance(external_reference, dict) else None
+            external_ref_id = (
+                external_reference.get("id")
+                if isinstance(external_reference, dict) and "id" in external_reference
+                else None
             )
+            created["external_reference"] = external_ref_id
 
             # Add the external reference to the report
             pycti.StixDomainObject(self.opencti_instance, File).add_external_reference(
-                id=report["id"], external_reference_id=external_reference["id"]
+                id=report_id, external_reference_id=external_ref_id
             )
 
             # Link Observable and Report
             pycti.Report(self.opencti_instance).add_stix_object_or_stix_relationship(
-                id=report["id"], stixObjectOrStixRelationshipId=observable["id"]
+                id=report_id, stixObjectOrStixRelationshipId=observable_id
             )
 
+            # Return a JSON-serializable summary instead of raw SDK responses.
             return {
-                "observable": pycti.StixCyberObservable(self.opencti_instance, File).read(
-                    id=observable["id"]
-                ),
-                "report": pycti.Report(self.opencti_instance).read(id=report["id"]),
+                "observable": {"id": observable_id},
+                "report": {"id": report_id},
             }
         except Exception as e:
             try:
