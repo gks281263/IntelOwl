@@ -208,10 +208,12 @@ class OpenCTI(classes.Connector):
             if observable_id is None:
                 raise ValueError("Invalid response from OpenCTI StixCyberObservable.create")
 
-            # Return a JSON-serializable summary instead of raw SDK responses.
+            # Return full objects using the SDK read methods (tests expect dicts here).
             return {
-                "observable": {"id": observable_id},
-                "report": {"id": report_id},
+                "observable": pycti.StixCyberObservable(self.opencti_instance, File).read(
+                    id=observable_id,
+                ),
+                "report": pycti.Report(self.opencti_instance).read(id=report_id),
             }
         except Exception as e:
             try:
