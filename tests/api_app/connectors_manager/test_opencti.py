@@ -1,5 +1,5 @@
 # This file is a part of IntelOwl https://github.com/intelowlproject/IntelOwl
-# See the file 'LICENSE' for copying permission. 
+# See the file 'LICENSE' for copying permission.
 
 import os
 from unittest import skipUnless
