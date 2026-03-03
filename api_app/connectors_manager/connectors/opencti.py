@@ -141,10 +141,7 @@ class OpenCTI(classes.Connector):
                 createdBy=org_id,
                 objectMarking=marking_id,
             )
-            if not isinstance(observable, dict) or "id" not in observable:
-                created["observable"] = None
-                raise ValueError("Invalid response from OpenCTI StixCyberObservable.create")
-            observable_id = observable["id"]
+            observable_id = observable["id"] if isinstance(observable, dict) and "id" in observable else None
             created["observable"] = observable_id
 
             # Create labels from Job tags (if not exists)
@@ -197,14 +194,20 @@ class OpenCTI(classes.Connector):
             created["external_reference"] = external_ref_id
 
             # Add the external reference to the report
-            pycti.StixDomainObject(self.opencti_instance, File).add_external_reference(
-                id=report_id, external_reference_id=external_ref_id
-            )
+            if report_id is not None and external_ref_id is not None:
+                pycti.StixDomainObject(self.opencti_instance, File).add_external_reference(
+                    id=report_id, external_reference_id=external_ref_id
+                )
 
             # Link Observable and Report
-            pycti.Report(self.opencti_instance).add_stix_object_or_stix_relationship(
-                id=report_id, stixObjectOrStixRelationshipId=observable_id
-            )
+            if report_id is not None and observable_id is not None:
+                pycti.Report(self.opencti_instance).add_stix_object_or_stix_relationship(
+                    id=report_id, stixObjectOrStixRelationshipId=observable_id
+                )
+
+            # Enforce observable contract once all dependent creations have been attempted.
+            if observable_id is None:
+                raise ValueError("Invalid response from OpenCTI StixCyberObservable.create")
 
             # Return a JSON-serializable summary instead of raw SDK responses.
             return {
