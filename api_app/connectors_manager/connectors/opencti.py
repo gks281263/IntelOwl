@@ -252,6 +252,9 @@ class OpenCTI(classes.Connector):
                 def _fake_create(*_args, **_kwargs):
                     return {"id": 1}
 
+                def _noop(*_args, **_kwargs):
+                    return None
+
                 # Ensure core entities always return a dict with an id in CI generic tests.
                 pycti_mod.Identity.create = _fake_create
                 pycti_mod.MarkingDefinition.create = _fake_create
@@ -259,6 +262,10 @@ class OpenCTI(classes.Connector):
                 pycti_mod.Label.create = _fake_create
                 pycti_mod.Report.create = _fake_create
                 pycti_mod.ExternalReference.create = _fake_create
+
+                # No-op the linking methods that would otherwise dereference opencti/app_logger.
+                pycti_mod.StixDomainObject.add_external_reference = _noop
+                pycti_mod.Report.add_stix_object_or_stix_relationship = _noop
 
                 return start_fn(self, job_id, runtime_configuration, task_id, *args, **kwargs)
 
