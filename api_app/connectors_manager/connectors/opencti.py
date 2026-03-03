@@ -89,9 +89,9 @@ class OpenCTI(classes.Connector):
             ),
             update=True,  # just in case the description is updated in future
         )
-        if not isinstance(org, dict) or "id" not in org:
-            raise ValueError("Invalid response from OpenCTI Identity.create")
-        return org["id"]
+        if isinstance(org, dict):
+            return org.get("id")
+        return None
 
     @property
     def marking_definition_id(self) -> str:
@@ -102,9 +102,9 @@ class OpenCTI(classes.Connector):
             x_opencti_color=self.tlp["color"].lower(),
             x_opencti_order=self.tlp["x_opencti_order"],
         )
-        if not isinstance(md, dict) or "id" not in md:
-            raise ValueError("Invalid response from OpenCTI MarkingDefinition.create")
-        return md["id"]
+        if isinstance(md, dict):
+            return md.get("id")
+        return None
 
     def config(self, runtime_configuration: Dict):
         super().config(runtime_configuration)
