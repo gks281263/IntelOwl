@@ -150,12 +150,13 @@ class OpenCTI(classes.Connector):
                     value=f"intelowl-tag:{tag.label}",
                     color=tag.color,
                 )
-                if isinstance(label, dict) and "id" in label:
-                    label_id = label["id"]
-                    created["labels"].append(label_id)
-                    label_ids.append(label_id)
-                else:
+                # If Label.create raised, we are in the except-block below; only guard for
+                # schema drift (non-dict / missing id) here.
+                if not isinstance(label, dict) or "id" not in label:
                     raise ValueError("Invalid response from OpenCTI Label.create")
+                label_id = label["id"]
+                created["labels"].append(label_id)
+                label_ids.append(label_id)
 
             # Create the report
             report = pycti.Report(self.opencti_instance).create(
@@ -222,16 +223,34 @@ class OpenCTI(classes.Connector):
             def inner(self, job_id, runtime_configuration, task_id, *args, **kwargs):
                 import pycti as pycti_mod
 
-                pycti_mod.Identity.return_value.create.return_value = {"id": 1}
-                pycti_mod.MarkingDefinition.return_value.create.return_value = {"id": 1}
-                pycti_mod.StixCyberObservable.return_value.create.return_value = {"id": 1}
-                pycti_mod.StixCyberObservable.return_value.read.return_value = {"id": 1}
-                pycti_mod.Label.return_value.create.return_value = {"id": 1}
-                pycti_mod.Report.return_value.create.return_value = {"id": 1}
-                pycti_mod.Report.return_value.read.return_value = {"id": 1}
-                pycti_mod.Report.return_value.add_stix_object_or_stix_relationship.return_value = None
-                pycti_mod.ExternalReference.return_value.create.return_value = {"id": 1}
-                pycti_mod.StixDomainObject.return_value.add_external_reference.return_value = None
+                def _set_create(target, value):
+                    # If target is a mock, configure its instance-return path.
+                    if hasattr(target, "return_value"):
+                        target.return_value.create.return_value = value
+                        return
+                    # Otherwise, patch the class method directly for the duration of the test run.
+                    original = getattr(target, "create", None)
+
+                    def _create(*_args, **_kwargs):
+                        return value
+
+                    setattr(target, "create", _create)
+                    return original
+
+                _set_create(pycti_mod.Identity, {"id": 1})
+                _set_create(pycti_mod.MarkingDefinition, {"id": 1})
+                _set_create(pycti_mod.StixCyberObservable, {"id": 1})
+                # For read/add_* paths we only care that they do not explode; simple dict/None is fine.
+                if hasattr(pycti_mod.StixCyberObservable, "return_value"):
+                    pycti_mod.StixCyberObservable.return_value.read.return_value = {"id": 1}
+                _set_create(pycti_mod.Label, {"id": 1})
+                _set_create(pycti_mod.Report, {"id": 1})
+                if hasattr(pycti_mod.Report, "return_value"):
+                    pycti_mod.Report.return_value.read.return_value = {"id": 1}
+                    pycti_mod.Report.return_value.add_stix_object_or_stix_relationship.return_value = None
+                _set_create(pycti_mod.ExternalReference, {"id": 1})
+                if hasattr(pycti_mod.StixDomainObject, "return_value"):
+                    pycti_mod.StixDomainObject.return_value.add_external_reference.return_value = None
                 return start_fn(self, job_id, runtime_configuration, task_id, *args, **kwargs)
 
             return inner
