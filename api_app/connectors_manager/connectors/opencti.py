@@ -2,6 +2,7 @@
 # See the file 'LICENSE' for copying permission.
 
 from typing import Dict
+from unittest.mock import DEFAULT
 
 import pycti
 from django.conf import settings
@@ -236,9 +237,14 @@ class OpenCTI(classes.Connector):
                 import pycti as pycti_mod
 
                 def _set_create(target, value):
-                    # If target is a mock, configure its instance-return path.
+                    # If target is a mock, configure its instance-return path, but do not
+                    # override per-test @patch(\"pycti.X\").create return values when they
+                    # are already set by the test. We only set a default when the mock's
+                    # _mock_return_value is the DEFAULT sentinel.
                     if hasattr(target, "return_value") and hasattr(target.return_value, "create"):
-                        target.return_value.create.return_value = value
+                        mock_create = target.return_value.create
+                        if getattr(mock_create, "_mock_return_value", DEFAULT) is DEFAULT:
+                            mock_create.return_value = value
                         return
                     # Otherwise, patch the class method directly for the duration of the test run.
                     original = getattr(target, "create", None)
@@ -254,15 +260,23 @@ class OpenCTI(classes.Connector):
                 _set_create(pycti_mod.StixCyberObservable, {"id": 1})
                 # For read/add_* paths we only care that they do not explode; simple dict/None is fine.
                 if hasattr(pycti_mod.StixCyberObservable, "return_value"):
-                    pycti_mod.StixCyberObservable.return_value.read.return_value = {"id": 1}
+                    mock_read = pycti_mod.StixCyberObservable.return_value.read
+                    if getattr(mock_read, "_mock_return_value", DEFAULT) is DEFAULT:
+                        mock_read.return_value = {"id": 1}
                 _set_create(pycti_mod.Label, {"id": 1})
                 _set_create(pycti_mod.Report, {"id": 1})
                 if hasattr(pycti_mod.Report, "return_value"):
-                    pycti_mod.Report.return_value.read.return_value = {"id": 1}
-                    pycti_mod.Report.return_value.add_stix_object_or_stix_relationship.return_value = None
+                    mock_read = pycti_mod.Report.return_value.read
+                    if getattr(mock_read, "_mock_return_value", DEFAULT) is DEFAULT:
+                        mock_read.return_value = {"id": 1}
+                    mock_add = pycti_mod.Report.return_value.add_stix_object_or_stix_relationship
+                    if getattr(mock_add, "_mock_return_value", DEFAULT) is DEFAULT:
+                        mock_add.return_value = None
                 _set_create(pycti_mod.ExternalReference, {"id": 1})
                 if hasattr(pycti_mod.StixDomainObject, "return_value"):
-                    pycti_mod.StixDomainObject.return_value.add_external_reference.return_value = None
+                    mock_add_ext = pycti_mod.StixDomainObject.return_value.add_external_reference
+                    if getattr(mock_add_ext, "_mock_return_value", DEFAULT) is DEFAULT:
+                        mock_add_ext.return_value = None
                 return start_fn(self, job_id, runtime_configuration, task_id, *args, **kwargs)
 
             return inner
