@@ -141,7 +141,10 @@ class OpenCTI(classes.Connector):
                 createdBy=org_id,
                 objectMarking=marking_id,
             )
-            observable_id = observable.get("id") if isinstance(observable, dict) and "id" in observable else None
+            if not isinstance(observable, dict) or "id" not in observable:
+                created["observable"] = None
+                raise ValueError("Invalid response from OpenCTI StixCyberObservable.create")
+            observable_id = observable["id"]
             created["observable"] = observable_id
 
             # Create labels from Job tags (if not exists)
@@ -175,7 +178,10 @@ class OpenCTI(classes.Connector):
                 objectLabel=label_ids,
                 x_opencti_report_status=2,  # Analyzed
             )
-            report_id = report.get("id") if isinstance(report, dict) and "id" in report else None
+            if not isinstance(report, dict) or "id" not in report:
+                created["report"] = None
+                raise ValueError("Invalid response from OpenCTI Report.create")
+            report_id = report["id"]
             created["report"] = report_id
 
             # Create the external reference
@@ -184,11 +190,10 @@ class OpenCTI(classes.Connector):
                 description="View analysis report on the IntelOwl instance",
                 url=f"{settings.WEB_CLIENT_URL}/jobs/{self.job_id}",
             )
-            external_ref_id = (
-                external_reference.get("id")
-                if isinstance(external_reference, dict) and "id" in external_reference
-                else None
-            )
+            if not isinstance(external_reference, dict) or "id" not in external_reference:
+                created["external_reference"] = None
+                raise ValueError("Invalid response from OpenCTI ExternalReference.create")
+            external_ref_id = external_reference["id"]
             created["external_reference"] = external_ref_id
 
             # Add the external reference to the report
@@ -229,7 +234,7 @@ class OpenCTI(classes.Connector):
 
                 def _set_create(target, value):
                     # If target is a mock, configure its instance-return path.
-                    if hasattr(target, "return_value"):
+                    if hasattr(target, "return_value") and hasattr(target.return_value, "create"):
                         target.return_value.create.return_value = value
                         return
                     # Otherwise, patch the class method directly for the duration of the test run.
